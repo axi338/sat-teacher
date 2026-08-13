@@ -43,6 +43,8 @@ async def init_db() -> None:
             columns = [row[1] for row in rows]
             if "referral_credited" not in columns:
                 await db.execute("ALTER TABLE users ADD COLUMN referral_credited INTEGER DEFAULT 0;")
+            if "reward_sent" not in columns:
+                await db.execute("ALTER TABLE users ADD COLUMN reward_sent INTEGER DEFAULT 0;")
         await db.commit()
 
 
@@ -307,7 +309,62 @@ async def get_user_rank(telegram_id: int) -> tuple[int, int]:
     return rank, count
 
 
-async def get_next_rank_needed(telegram_id: int) -> int:
+async def get_referral_friends(inviter_id: int) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Return (verified_friends, pending_friends) referred by inviter_id."""
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        db.row_factory = aiosqlite.Row
+        async with db.execute(
+            """
+            SELECT telegram_id, full_name, username, referral_credited, joined_at
+            FROM users
+            WHERE invited_by = ?
+            ORDER BY joined_at ASC
+            """,
+            (inviter_id,),
+        ) as cursor:
+            rows = await cursor.fetchall()
+
+    verified = [dict(r) for r in rows if r["referral_credited"]]
+    pending = [dict(r) for r in rows if not r["referral_credited"]]
+    return verified, pending
+
+
+async def count_rewards_sent() -> int:
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        async with db.execute(
+            "SELECT COUNT(*) FROM users WHERE reward_sent = 1"
+        ) as cursor:
+            row = await cursor.fetchone()
+            return row[0] if row else 0
+
+
+async def get_reward_settings() -> dict[str, str | None]:
+    keys = [
+        "predictions_file_id",
+        "predictions_file_name",
+        "predictions_file_size",
+        "predictions_uploaded_at",
+        "predictions_active",
+    ]
+    settings: dict[str, str | None] = {}
+    for key in keys:
+        settings[key] = await get_setting(key)
+    settings["rewards_sent_count"] = str(await count_rewards_sent())
+    return settings
+
+
+async def save_reward_file(
+    file_id: str,
+    file_name: str,
+    file_size: int,
+) -> None:
+    uploaded_at = datetime.now(timezone.utc).isoformat()
+    await set_setting("predictions_file_id", file_id)
+    await set_setting("predictions_file_name", file_name)
+    await set_setting("predictions_file_size", str(file_size))
+    await set_setting("predictions_uploaded_at", uploaded_at)
+    await set_setting("predictions_active", "1")
+
     rank, count = await get_user_rank(telegram_id)
     if rank <= 1:
         return 0

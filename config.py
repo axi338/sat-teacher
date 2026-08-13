@@ -37,6 +37,10 @@ CHANNEL_3_LINK = get_env("CHANNEL_3_LINK", "https://t.me/DesmosBootcamp")
 
 CHANNELS = [c for c in [CHANNEL_1_ID, CHANNEL_2_ID, CHANNEL_3_ID] if c]
 CHANNEL_LINKS = [l for l in [CHANNEL_1_LINK, CHANNEL_2_LINK, CHANNEL_3_LINK] if l]
+CHANNEL_NAMES = ["SAT Humoyunbek", "SAT Valley", "Desmos Bootcamp"]
+
+SAT_VALLEY_LINK = get_env("SAT_VALLEY_LINK", "https://t.me/sat_valley")
+EXPLORE_SAT_VALLEY_LINK = get_env("EXPLORE_SAT_VALLEY_LINK", "https://t.me/sat_valley")
 
 DATABASE_PATH = DATA_DIR / "bot.db"
 
@@ -44,6 +48,10 @@ req_ref_str = get_env("REQUIRED_REFERRALS", "3")
 REQUIRED_REFERRALS = int(req_ref_str) if req_ref_str.isdigit() else 3
 
 PREDICTIONS_FILE_KEY = "predictions_file_id"
+PREDICTIONS_FILE_NAME_KEY = "predictions_file_name"
+PREDICTIONS_FILE_SIZE_KEY = "predictions_file_size"
+PREDICTIONS_UPLOADED_AT_KEY = "predictions_uploaded_at"
+PREDICTIONS_ACTIVE_KEY = "predictions_active"
 TARGET_CHANNEL_LINK = get_env("TARGET_CHANNEL_LINK", "https://t.me/sat_valley")
 TARGET_CHANNEL_ID = os.getenv("TARGET_CHANNEL_ID", "").strip()
 

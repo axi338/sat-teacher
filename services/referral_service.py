@@ -1,13 +1,32 @@
+from urllib.parse import quote
+
 from aiogram import Bot
+from aiogram.exceptions import TelegramAPIError
 
 import database as db
 from config import BOT_USERNAME, REQUIRED_REFERRALS
 from services.channel_checker import check_all_channels
+from services.file_service import deliver_reward, progress_bar
 
 
 def build_referral_link(telegram_id: int) -> str:
     username = BOT_USERNAME or "your_bot"
     return f"https://t.me/{username}?start=ref_{telegram_id}"
+
+
+def build_share_url(referral_link: str) -> str:
+    share_text = (
+        "🎯 Want a SAT Math Prediction PDF?\n\n"
+        "I'm unlocking mine through SAT Valley — you can get yours too.\n\n"
+        "Join the SAT Valley channels through my link and help me unlock it 👇\n\n"
+        f"{referral_link}\n\n"
+        "It takes less than a minute."
+    )
+    return (
+        "https://t.me/share/url?"
+        f"url={quote(referral_link, safe='')}"
+        f"&text={quote(share_text, safe='')}"
+    )
 
 
 def parse_referral_payload(start_payload: str | None) -> int | None:
@@ -26,9 +45,8 @@ async def process_referral_start(
     start_payload: str | None,
 ) -> int | None:
     """
-    Process referral from /start payload.
-    Parses payload and returns inviter_id if valid and not a self-referral.
-    Does NOT credit inviter immediately — crediting happens after 3-channel verification.
+    Assign referral ownership for a brand-new bot user only.
+    Credit happens later after all 3 channels are verified.
     """
     inviter_id = parse_referral_payload(start_payload)
     if not inviter_id or inviter_id == new_user_id:
@@ -41,93 +59,91 @@ async def process_referral_start(
     return inviter_id
 
 
+def inviter_success_message(referral_count: int) -> str:
+    remaining = max(REQUIRED_REFERRALS - referral_count, 0)
+    bar = progress_bar(referral_count)
+
+    if referral_count == 1:
+        return (
+            "🎉 <b>New friend added!</b>\n\n"
+            "Your referral has been successfully verified.\n\n"
+            f"<b>Progress: {referral_count} / {REQUIRED_REFERRALS}</b>\n"
+            f"{bar}\n\n"
+            f"Only <b>{remaining} more friends</b> to go!\n\n"
+            "Keep sharing your link."
+        )
+    if referral_count == 2:
+        return (
+            "🔥 <b>2 / 3 friends completed!</b>\n\n"
+            f"{bar}\n\n"
+            "You're one step away from unlocking your "
+            "<b>SAT Math Prediction PDF</b>.\n\n"
+            "Invite <b>1 more friend</b> who joins all 3 channels."
+        )
+    if referral_count >= REQUIRED_REFERRALS:
+        return (
+            "🎉 <b>YOU UNLOCKED IT!</b>\n\n"
+            f"You've successfully invited <b>{REQUIRED_REFERRALS} friends</b>.\n\n"
+            "Your <b>SAT Math Prediction PDF</b> is ready. 📎"
+        )
+    return (
+        "🎉 <b>New friend added!</b>\n\n"
+        "Your referral has been successfully verified.\n\n"
+        f"<b>Progress: {referral_count} / {REQUIRED_REFERRALS}</b>\n"
+        f"{bar}"
+    )
+
+
+def referred_user_viral_loop_message(referral_link: str) -> str:
+    return (
+        "✅ <b>Membership confirmed!</b>\n\n"
+        "You've helped your friend move closer to their SAT Math Prediction PDF.\n\n"
+        "🎁 <b>Want the same file?</b>\n\n"
+        "Invite <b>3 friends</b> who open this bot through your link and join all "
+        "3 SAT Valley channels — your PDF unlocks automatically.\n\n"
+        f"<b>Your personal invite link:</b>\n{referral_link}"
+    )
+
+
 async def check_and_credit_referral(bot: Bot, user_id: int) -> bool:
     """
-    Checks if user_id has joined all 3 channels.
-    If joined and user has an uncredited inviter, credits the inviter and notifies them.
-    Auto-delivers prediction PDF to inviter when they reach REQUIRED_REFERRALS.
-    Returns True if a referral was newly credited.
+    Credit inviter only after referred user joins all 3 channels.
+    Permanent credit — never revoked if user later leaves a channel.
     """
     user = await db.get_user(user_id)
     if not user or not user.get("invited_by") or user.get("referral_credited"):
         return False
 
-    inviter_id = user["invited_by"]
-    channels_ok = await check_all_channels(bot, user_id)
-    if not channels_ok:
+    if not await check_all_channels(bot, user_id):
         return False
 
+    inviter_id = user["invited_by"]
     credited, new_count = await db.credit_referral(inviter_id, user_id)
-    if credited:
-        try:
-            await bot.send_message(
-                inviter_id,
-                f"🎉 **New friend added!** You now have **{new_count}/{REQUIRED_REFERRALS}** invites."
-            )
-        except Exception:
-            pass
+    if not credited:
+        return False
 
+    try:
         if new_count >= REQUIRED_REFERRALS:
-            inviter = await db.get_user(inviter_id)
-            if inviter and not inviter.get("file_unlocked"):
-                await db.update_user(inviter_id, file_unlocked=1)
-                file_id = await db.get_setting("predictions_file_id")
-                try:
-                    await bot.send_message(
-                        inviter_id,
-                        "🎉 **Congratulations! You've invited 3 friends.**\n\n"
-                        "📎 Here is your **SAT Math Prediction** file:"
-                    )
-                    if file_id:
-                        await bot.send_document(inviter_id, file_id)
-                    else:
-                        await bot.send_message(
-                            inviter_id,
-                            "ℹ️ Your file is ready! Use the /start command or click **Sovg'ani olish** in the bot menu."
-                        )
-                except Exception:
-                    pass
-        return True
+            await deliver_reward(bot, inviter_id)
+        else:
+            await bot.send_message(inviter_id, inviter_success_message(new_count))
+    except TelegramAPIError:
+        pass
 
-    return False
+    try:
+        ref_link = build_referral_link(user_id)
+        from keyboards import dashboard_keyboard
+
+        await bot.send_message(
+            user_id,
+            referred_user_viral_loop_message(ref_link),
+            reply_markup=dashboard_keyboard(user_id),
+        )
+    except TelegramAPIError:
+        pass
+
+    return True
 
 
 def referrals_complete(referral_count: int) -> bool:
     return referral_count >= REQUIRED_REFERRALS
-
-
-async def build_leaderboard_text(user_id: int) -> str:
-    top_users = await db.get_top_referrers(20)
-    user_rank, user_count = await db.get_user_rank(user_id)
-    needed = await db.get_next_rank_needed(user_id)
-
-    lines = [
-        "🏆 <b>Leaderboard (Top 20 Referrers)</b>\n",
-        "📊 <b>Participants with the most successful invites</b>\n",
-    ]
-
-    medals = {1: "🥇", 2: "🥈", 3: "🥉"}
-
-    if not top_users:
-        lines.append("<i>No participants yet. Be the first to invite your friends!</i>")
-    else:
-        for i, u in enumerate(top_users, start=1):
-            name = u.get("full_name") or (f"@{u['username']}" if u.get("username") else "Participant")
-            count = u.get("referral_count", 0)
-            prefix = medals.get(i, f"{i}.")
-            lines.append(f"{prefix} {name} — <b>{count}</b> invites")
-
-    lines.append("\n━━━━━━━━━━━━━━\n")
-    lines.append(f"👤 Your rank: <b>#{user_rank}</b>")
-    lines.append(f"📨 Your invites: <b>{user_count}</b>")
-
-    if user_rank == 1 and user_count > 0:
-        lines.append("🎯 You are #1 in the leaderboard! 🎉")
-    else:
-        lines.append(f"🎯 Invites needed to reach next rank: <b>{needed}</b>")
-
-    lines.append("\n🚀 Invite friends using your referral link to win rewards!")
-
-    return "\n".join(lines)
-
-
