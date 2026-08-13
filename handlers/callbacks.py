@@ -16,69 +16,43 @@ from keyboards import (
     referral_keyboard,
 )
 from services import file_service
+from services.channel_checker import check_all_channels
 from services.export_service import export_users_csv, format_user_info
-from services.referral_service import build_leaderboard_text, build_referral_link
-
+from services.referral_service import (
+    build_leaderboard_text,
+    build_referral_link,
+    check_and_credit_referral,
+)
 
 router = Router()
 
 STEP_1_TEXT = (
-    "🎁 2 ta kanalga obuna bo'lib, 3 ta do'stingizni taklif qiling va birinchi sovg'ani oching!\n\n"
-    "📚 Birinchi sovg'a:\n"
-    "$1000+ qiymatidagi premium SAT darsliklari siz uchun ochiladi.\n\n"
-    "🏆 Asosiy sovg'a:\n"
-    "Humoyunbek Mirzayev bilan $1000 qiymatidagi 1 oylik individual mentorlik.\n\n"
-    "🔥 Asosiy sovg'ani qo'lga kiritish uchun imkon qadar ko'proq do'stingizni taklif qiling. "
-    "Eng ko'p do'st taklif qilgan ishtirokchi g'olib bo'ladi! ❤️🔥\n\n"
-    "👇 Avval quyidagi kanallarga obuna bo'ling:\n"
-    "1. [Math with Humoyunbek](https://t.me/sat_humoyunbek)\n"
-    "2. [SAT Valley](https://t.me/sat_valley)\n\n"
-    "Obuna bo'lgach, **✅ Obunani tekshirish** tugmasini bosing."
-)
-
-
-STEP_2_TEXT = (
-    "✅ Obuna muvaffaqiyatli tasdiqlandi! 🎉\n\n"
-    "👥 2-qadam: Do'stlaringizni taklif qiling\n"
-    "🎁 Shaxsiy referral havolangiz orqali kamida 3 ta do'stingizni taklif qiling.\n\n"
-    "Do'stlaringiz havolangiz orqali botga kirib START tugmasini bosgach, siz uchun $1000+ qiymatidagi premium SAT darsliklari ochiladi. 📚\n\n"
-    "🏆 Ko'proq do'st taklif qilsangiz, imkoniyatingiz yanada oshadi!\n"
-    "Eng ko'p do'st taklif qilgan ishtirokchi:\n\n"
-    "👨🏫 Humoyunbek Mirzayev bilan $1000 qiymatidagi 1 oylik individual mentorlikni qo'lga kiritadi.\n\n"
-    "🥈 TOP 3 ishtirokchi esa:\n"
-    "📱 Telegram Premium\n"
-    "📚 Mutolaa Premium bilan taqdirlanadi. ❤️🔥"
+    "🎁 **Want the SAT Math Prediction file?**\n\n"
+    "This file includes high-value SAT Math practice & prediction problems! 🚀\n\n"
+    "📌 **To get started, please join all 3 required channels below:**\n"
+    "• https://t.me/sat_humoyunbek\n"
+    "• https://t.me/sat_valley\n"
+    "• https://t.me/DesmosBootcamp\n\n"
+    "Once joined, click **🔄 Check status / Obunani tekshirish** to get your personal referral link."
 )
 
 ABOUT_FILE_TEXT = (
-    "🚨 **SAT'dan 1500+ olishni xohlaysizmi?**\n\n"
-    "Humoyunbek Mirzayev — SAT bo'yicha O'zbekistondagi eng yaxshi ustoz — \n"
-    "siz uchun **$1000+ qiymatidagi** to'liq SAT tayyorgarlik paketini \n"
-    "mutlaqo **BEPUL** taqdim etmoqda!\n\n"
-    "📚 **Nima olasiz?**\n"
-    "✅ SAT Math bo'yicha to'liq video darslar kursi\n"
-    "✅ SAT English & Reading tayyorgarlik materiallari\n"
-    "✅ Real SAT savollari va yechimlar\n"
-    "✅ Shaxsiy o'sish strategiyalari\n\n"
-    "🏆 **Sovrinlar:**\n"
-    "🥇 1-o'rin — Humoyunbek Mirzayev bilan **1 oylik individual mentorlik** (qiymati $1000)\n"
-    "🥈 2-o'rin — **Telegram Premium** + **Mutolaa Premium**\n"
-    "🥉 3-o'rin — **Telegram Premium** + **Mutolaa Premium**\n\n"
-    "🔥 **G'olib kim bo'ladi?**\n"
-    "Eng ko'p do'st taklif qilgan ishtirokchi asosiy sovrinni qo'lga kiritadi!\n\n"
-    "📌 **Shartlar:**\n"
-    "✅ 2 ta Telegram kanalga obuna bo'ling\n"
-    "✅ Do'stlaringizni taklif havolangiz orqali taklif qiling\n\n"
-    "Vaqt cheklangan — hoziroq ishtirok eting!"
+    "🎁 **SAT Math Prediction File**\n\n"
+    "The SAT Math Prediction file is an exclusive collection of high-yield math problems, "
+    "pattern analyses, and prediction formulas designed by SAT Valley experts to help you achieve a top SAT score.\n\n"
+    "📌 **How to unlock for free:**\n"
+    "1. Join all 3 required channels (§1.1).\n"
+    "2. Share your personal referral link with 3 friends.\n"
+    "3. Once 3 friends join through your link, the file will be delivered automatically!"
 )
 
 EVENT_SETTINGS_TEXT = (
-    "⚙️ Event Sozlamalari\n\n"
-    "🔥 Hozirgi event: $1000 SAT Mukofoti\n\n"
-    f"Talablar:\n"
-    f"• 2 ta Telegram kanalga obuna bo'lish\n"
-    f"• {REQUIRED_REFERRALS} ta do'stni taklif qilish\n\n"
-    "Fayl yuklash: Admin paneldagi 📁 Upload Predictions File tugmasi orqali."
+    "⚙️ **Event Settings**\n\n"
+    "🔥 Current Event: SAT Math Prediction File Giveaway\n\n"
+    "Requirements:\n"
+    "• Join 3 required Telegram channels\n"
+    f"• Invite {REQUIRED_REFERRALS} friends\n\n"
+    "Upload File: Use 📁 Upload Predictions File button in Admin Panel."
 )
 
 
@@ -98,24 +72,32 @@ async def cb_check_subscription(callback: CallbackQuery, bot: Bot) -> None:
     if not callback.from_user:
         return
 
-    user = await db.get_user(callback.from_user.id)
+    user_id = callback.from_user.id
+    user = await db.get_user(user_id)
     if not user:
-        await callback.message.answer("Iltimos, avval /start buyrug'ini yuboring.")
+        await callback.message.answer("Please type /start to register.")
         return
 
-    channels_ok, _, _ = await file_service.user_can_unlock(bot, user)
-
+    channels_ok = await check_all_channels(bot, user_id)
     if channels_ok:
-        await db.update_user(callback.from_user.id, channels_joined=1)
+        await db.update_user(user_id, channels_joined=1)
+        await check_and_credit_referral(bot, user_id)
+
+        user = await db.get_user(user_id) or user
+        ref_link = build_referral_link(user_id)
+        count = user.get("referral_count", 0)
+
+        text = file_service.format_progress(user_id, ref_link, count)
         await callback.message.answer(
-            STEP_2_TEXT,
-            reply_markup=referral_keyboard(),
+            text,
+            reply_markup=referral_keyboard(user_id),
+            link_preview_options=LinkPreviewOptions(is_disabled=True),
         )
     else:
-        await db.update_user(callback.from_user.id, channels_joined=0)
+        await db.update_user(user_id, channels_joined=0)
         await callback.message.answer(
-            "❌ Siz hali barcha kanallarga obuna bo'lmadingiz.\n\n"
-            "Iltimos, ko'rsatilgan barcha kanallarga obuna bo'ling va qaytadan **✅ Obunani tekshirish** tugmasini bosing.",
+            "❌ **You have not joined all 3 required channels yet.**\n\n"
+            "Please join each channel below and then click **🔄 Check status / Obunani tekshirish**:",
             reply_markup=channels_keyboard(),
             link_preview_options=LinkPreviewOptions(is_disabled=True),
         )
@@ -127,63 +109,32 @@ async def cb_referral_link(callback: CallbackQuery) -> None:
     if not callback.from_user:
         return
 
-    user = await db.get_user(callback.from_user.id)
+    user_id = callback.from_user.id
+    user = await db.get_user(user_id)
     if not user:
-        await callback.message.answer("Iltimos, avval /start buyrug'ini yuboring.")
+        await callback.message.answer("Please type /start to register.")
         return
 
-    link = build_referral_link(callback.from_user.id)
+    link = build_referral_link(user_id)
+    count = user.get("referral_count", 0)
+    text = file_service.format_progress(user_id, link, count)
     await callback.message.answer(
-        f"🚨 SAT'dan 1500+ olishni xohlaysizmi?\n"
-        f"🎁 $1000+ qiymatidagi SAT darsliklari — BEPUL!\n"
-        f"🏆 $1000 qiymatidagi Humoyunbek Mirzayev bilan individual mentorlik!\n"
-        f"📱 TOP 3 — Telegram Premium + Mutolaa Premium.\n"
-        f"🔥 G'olib — eng ko'p do'st taklif qilgan ishtirokchi!\n\n"
-        f"👇 Hoziroq qatnashing:\n"
-        f"{link}",
-        reply_markup=referral_keyboard(),
+        text,
+        reply_markup=referral_keyboard(user_id),
+        link_preview_options=LinkPreviewOptions(is_disabled=True),
     )
 
 
 @router.callback_query(F.data == "my_progress")
 async def cb_my_progress(callback: CallbackQuery, bot: Bot) -> None:
-    await callback.answer()
-    if not callback.from_user:
-        return
-
-    db_user = await db.get_user(callback.from_user.id)
-    if not db_user:
-        await callback.message.answer("Iltimos, avval /start buyrug'ini yuboring.")
-        return
-
-    channels_ok, referrals_ok, referral_count = await file_service.user_can_unlock(
-        bot, db_user
-    )
-    db_user = await db.get_user(callback.from_user.id) or db_user
-    file_unlocked = bool(db_user.get("file_unlocked"))
-
-    if channels_ok and referrals_ok:
-        invite_link = await file_service.get_target_invite_link(bot)
-        await callback.message.answer(
-            "🎉 **Tabriklaymiz! Barcha shartlarni muvaffaqiyatli bajardingiz!**\n\n"
-            f"Sizning kirish havolangiz: {invite_link}",
-            reply_markup=main_menu_keyboard(),
-        )
-        return
-
-    text = file_service.format_progress(
-        channels_ok, referral_count, file_unlocked
-    )
-    await callback.message.answer(
-        text, 
-        reply_markup=referral_keyboard() if channels_ok else channels_keyboard()
-    )
+    await cb_check_subscription(callback, bot)
 
 
 @router.callback_query(F.data == "about_file")
 async def cb_about_file(callback: CallbackQuery) -> None:
     await callback.answer()
-    await callback.message.answer(ABOUT_FILE_TEXT, reply_markup=main_menu_keyboard())
+    user_id = callback.from_user.id if callback.from_user else None
+    await callback.message.answer(ABOUT_FILE_TEXT, reply_markup=main_menu_keyboard(user_id))
 
 
 @router.callback_query(F.data == "unlock_file")
@@ -192,9 +143,10 @@ async def cb_unlock_file(callback: CallbackQuery, bot: Bot) -> None:
     if not callback.from_user:
         return
 
-    db_user = await db.get_user(callback.from_user.id)
+    user_id = callback.from_user.id
+    db_user = await db.get_user(user_id)
     if not db_user:
-        await callback.message.answer("Iltimos, avval /start buyrug'ini yuboring.")
+        await callback.message.answer("Please type /start to register.")
         return
 
     channels_ok, referrals_ok, referral_count = await file_service.user_can_unlock(
@@ -202,34 +154,37 @@ async def cb_unlock_file(callback: CallbackQuery, bot: Bot) -> None:
     )
 
     if channels_ok and referrals_ok:
-        await db.update_user(callback.from_user.id, file_unlocked=1)
-        invite_link = await file_service.get_target_invite_link(bot)
-        
+        await db.update_user(user_id, file_unlocked=1)
+        file_id = await file_service.get_predictions_file_id()
+
         await callback.message.answer(
-            "🎉 **Tabriklaymiz! Barcha shartlarni muvaffaqiyatli bajardingiz!**\n\n"
-            "Siz uchun eksklyuziv taklif havolasi ajratildi:\n"
-            f"👉 {invite_link}\n\n"
-            "Ushbu havola orqali materiallar va sovg'alarga ega bo'ling!",
-            reply_markup=main_menu_keyboard(),
+            "🎉 **Congratulations! You've invited 3 friends.**\n\n"
+            "📎 Here is your **SAT Math Prediction** file:"
         )
 
-        file_id = await file_service.get_predictions_file_id()
         if file_id:
             await callback.message.answer_document(file_id)
+        else:
+            await callback.message.answer(
+                "ℹ️ Your reward is unlocked! Admin has been notified to attach the prediction file."
+            )
+
+        # Step 5 - Route to Funnel
+        await callback.message.answer(
+            "🚀 **What's Next?**\n\n"
+            "Join the main SAT Valley channel for daily SAT practice and updates!\n"
+            "👉 https://t.me/sat_valley",
+            reply_markup=main_menu_keyboard(user_id),
+        )
         return
 
-    channels_text = "✅ Obuna bo'lingan" if channels_ok else "❌ Obuna bo'linmagan"
     await callback.message.answer(
-        "🔒 **Sovg'a hali qulflangan.**\n\n"
-        "Uni ochish uchun quyidagi shartlarni bajaring:\n\n"
-        "✅ Kanallarga obuna bo'ling\n"
-        f"👥 {REQUIRED_REFERRALS} ta do'stingizni taklif qiling\n\n"
-        f"Hozirgi holatingiz:\n"
-        f"📢 Kanallar: {channels_text}\n"
-        f"👥 Taklif qilinganlar: {referral_count}/{REQUIRED_REFERRALS}",
-        reply_markup=referral_keyboard() if channels_ok else channels_keyboard(),
+        f"🔒 **SAT Math Prediction file is locked.**\n\n"
+        f"Friends invited: **{referral_count}/{REQUIRED_REFERRALS}**\n"
+        f"Channels joined: **{'✅ Yes' if channels_ok else '❌ No'}**\n\n"
+        f"Invite {REQUIRED_REFERRALS - referral_count if REQUIRED_REFERRALS > referral_count else 0} more friend(s) who join all 3 channels to unlock!",
+        reply_markup=referral_keyboard(user_id) if channels_ok else channels_keyboard(),
     )
-
 
 
 # --- Admin callbacks ---
@@ -242,7 +197,7 @@ async def cb_admin_total_users(callback: CallbackQuery) -> None:
         return
     await callback.answer()
     stats = await db.get_campaign_stats()
-    await callback.message.answer(f"Total users: {stats['total_users']}")
+    await callback.message.answer(f"Total users: {stats.get('total_users', 0)}")
 
 
 @router.callback_query(F.data == "admin_campaign_stats")
@@ -253,13 +208,14 @@ async def cb_admin_campaign_stats(callback: CallbackQuery) -> None:
     await callback.answer()
     s = await db.get_campaign_stats()
     await callback.message.answer(
-        "📊 Campaign Statistics\n\n"
-        f"👥 Total users: {s['total_users']}\n"
-        f"📢 Joined channels: {s['joined_channels']}\n"
-        f"👥 Users with at least 1 referral: {s['users_with_referrals']}\n"
-        f"✅ Users with 3+ referrals: {s['users_with_3_referrals']}\n"
-        f"🔓 Users who unlocked the file: {s['file_unlocked']}\n"
-        f"🔗 Total successful referrals: {s['total_referrals']}"
+        "📊 **Campaign Conversion Funnel & Statistics**\n\n"
+        f"👤 Total Bot Users: **{s.get('total_users', 0)}**\n"
+        f"📢 Joined All 3 Channels: **{s.get('joined_channels', 0)}**\n"
+        f"1️⃣ Users with 1 Referral: **{s.get('users_with_1_referral', 0)}**\n"
+        f"2️⃣ Users with 2 Referrals: **{s.get('users_with_2_referrals', 0)}**\n"
+        f"3️⃣ Users with 3+ Referrals: **{s.get('users_with_3_referrals', 0)}**\n"
+        f"🔓 File Unlocked: **{s.get('file_unlocked', 0)}**\n"
+        f"🔗 Total Confirmed Referrals: **{s.get('total_referrals', 0)}**"
     )
 
 
@@ -315,7 +271,6 @@ async def cb_broadcast_confirm(callback: CallbackQuery, state: FSMContext, bot: 
     )
 
 
-
 @router.callback_query(F.data == "broadcast_cancel")
 async def cb_broadcast_cancel(callback: CallbackQuery, state: FSMContext) -> None:
     if not callback.from_user or not is_admin(callback.from_user.id):
@@ -337,7 +292,7 @@ async def cb_admin_upload_file(callback: CallbackQuery, state: FSMContext) -> No
     await callback.answer()
     await state.set_state(AdminStates.upload_file)
     await callback.message.answer(
-        "Please upload the new JUNE SAT Predictions File."
+        "Please upload the SAT Math Prediction File (PDF or Document)."
     )
 
 
@@ -376,9 +331,9 @@ async def cb_ranking(callback: CallbackQuery) -> None:
     if not callback.from_user:
         return
 
-    text = await build_leaderboard_text(callback.from_user.id)
-    await callback.message.answer(text, reply_markup=main_menu_keyboard())
-
+    user_id = callback.from_user.id
+    text = await build_leaderboard_text(user_id)
+    await callback.message.answer(text, reply_markup=main_menu_keyboard(user_id))
 
 
 @router.callback_query(F.data == "admin_event_settings")
@@ -391,3 +346,4 @@ async def cb_admin_event_settings(callback: CallbackQuery) -> None:
         EVENT_SETTINGS_TEXT,
         reply_markup=admin_panel_keyboard(),
     )
+

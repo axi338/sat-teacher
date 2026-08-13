@@ -53,14 +53,16 @@ async def requirements_met(bot, user: dict) -> bool:
     return channels_ok and referrals_ok
 
 
-def format_progress(channels_ok: bool, referral_count: int, file_unlocked: bool) -> str:
-    channels_text = "✅ Obuna bo'lingan" if channels_ok else "❌ Obuna bo'linmagan"
-    unlocked_text = "🎉 Ochilgan" if file_unlocked else "🔒 Qulflangan"
+def format_progress(user_id: int, referral_link: str, referral_count: int) -> str:
     return (
-        f"📊 **Sizning ishtirok holatingiz:**\n\n"
-        f"📢 Kanallarga obuna: {channels_text}\n"
-        f"👥 Taklif qilingan ishtirokchilar: {referral_count}/{REQUIRED_REFERRALS}\n"
-        f"🎁 Sovg'a holati: {unlocked_text}\n\n"
-        f"Barcha shartlarni bajarib, sovg'ani va shaxsiy havolani qo'lga kiriting!"
+        f"📊 **Your Referral Progress**\n\n"
+        f"🔗 **Your personal referral link:**\n"
+        f"{referral_link}\n\n"
+        f"👥 **Friends invited:** {referral_count}/{REQUIRED_REFERRALS}\n\n"
+        f"📌 **Your friend needs to open the bot through this link and join all 3 channels below:**\n"
+        f"• https://t.me/sat_humoyunbek\n"
+        f"• https://t.me/sat_valley\n"
+        f"• https://t.me/DesmosBootcamp"
     )
+
 

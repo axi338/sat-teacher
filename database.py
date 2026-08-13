@@ -19,7 +19,8 @@ async def init_db() -> None:
                 invited_by INTEGER,
                 referral_count INTEGER DEFAULT 0,
                 channels_joined INTEGER DEFAULT 0,
-                file_unlocked INTEGER DEFAULT 0
+                file_unlocked INTEGER DEFAULT 0,
+                referral_credited INTEGER DEFAULT 0
             );
 
             CREATE TABLE IF NOT EXISTS referrals (
@@ -36,6 +37,12 @@ async def init_db() -> None:
             );
             """
         )
+        # Auto-migrate table if referral_credited column missing
+        async with db.execute("PRAGMA table_info(users)") as cursor:
+            rows = await cursor.fetchall()
+            columns = [row[1] for row in rows]
+            if "referral_credited" not in columns:
+                await db.execute("ALTER TABLE users ADD COLUMN referral_credited INTEGER DEFAULT 0;")
         await db.commit()
 
 
@@ -122,6 +129,52 @@ async def add_referral(inviter_id: int, invited_user_id: int) -> bool:
             return False
 
 
+async def credit_referral(inviter_id: int, invited_user_id: int) -> tuple[bool, int]:
+    """
+    Credits a referral to inviter_id for invited_user_id if not already credited.
+    Returns (credited: bool, new_referral_count: int).
+    """
+    if inviter_id == invited_user_id:
+        inviter = await get_user(inviter_id)
+        return False, inviter.get("referral_count", 0) if inviter else 0
+
+    invited_user = await get_user(invited_user_id)
+    if not invited_user or invited_user.get("referral_credited"):
+        inviter = await get_user(inviter_id)
+        return False, inviter.get("referral_count", 0) if inviter else 0
+
+    created_at = datetime.now(timezone.utc).isoformat()
+    async with aiosqlite.connect(DATABASE_PATH) as db:
+        await db.execute(
+            "UPDATE users SET referral_credited = 1 WHERE telegram_id = ?",
+            (invited_user_id,),
+        )
+        try:
+            await db.execute(
+                """
+                INSERT INTO referrals (inviter_id, invited_user_id, created_at)
+                VALUES (?, ?, ?)
+                """,
+                (inviter_id, invited_user_id, created_at),
+            )
+        except aiosqlite.IntegrityError:
+            pass
+
+        await db.execute(
+            "UPDATE users SET referral_count = referral_count + 1 WHERE telegram_id = ?",
+            (inviter_id,),
+        )
+        await db.commit()
+
+        async with db.execute(
+            "SELECT referral_count FROM users WHERE telegram_id = ?", (inviter_id,)
+        ) as cursor:
+            row = await cursor.fetchone()
+            count = row[0] if row else 0
+
+    return True, count
+
+
 async def referral_exists(inviter_id: int, invited_user_id: int) -> bool:
     async with aiosqlite.connect(DATABASE_PATH) as db:
         async with db.execute(
@@ -174,7 +227,7 @@ async def search_user(query: str) -> dict[str, Any] | None:
                 row = await cursor.fetchone()
                 return dict(row) if row else None
         async with db.execute(
-            "SELECT * FROM users WHERE LOWER(username) = LOWER(?)", (query,)
+            "SELECT * FROM users WHERE LOWER(username) = LOWER(?)" , (query,)
         ) as cursor:
             row = await cursor.fetchone()
             return dict(row) if row else None
@@ -191,6 +244,16 @@ async def get_campaign_stats() -> dict[str, int]:
             "SELECT COUNT(*) FROM users WHERE channels_joined = 1"
         ) as c:
             stats["joined_channels"] = (await c.fetchone())[0]
+
+        async with db.execute(
+            "SELECT COUNT(*) FROM users WHERE referral_count = 1"
+        ) as c:
+            stats["users_with_1_referral"] = (await c.fetchone())[0]
+
+        async with db.execute(
+            "SELECT COUNT(*) FROM users WHERE referral_count = 2"
+        ) as c:
+            stats["users_with_2_referrals"] = (await c.fetchone())[0]
 
         async with db.execute(
             "SELECT COUNT(*) FROM users WHERE referral_count >= 1"

@@ -4,25 +4,14 @@ from aiogram.types import Message
 
 import database as db
 from keyboards import welcome_keyboard
-from services.referral_service import process_referral_start, build_referral_link
+from services.referral_service import process_referral_start
 
 router = Router()
 
 WELCOME_TEXT = (
-    "🎁 $1000 qiymatidagi SAT kursini mutlaqo BEPUL qo'lga kiritish imkoniyati! ❤️🔥\n\n"
-    "SAT Valley eng katta sovrin o'yinini boshladi! 🚀\n"
-    "Sizni nimalar kutmoqda?\n\n"
-    "📚 $1000+ qiymatidagi SAT Math & English video darslari — mutlaqo bepul.\n"
-    "🏆 Asosiy sovg'a:\n"
-    "👨‍🏫 Humoyunbek Mirzayev bilan 1 oylik individual mentorlik (qiymati — $1000).\n\n"
-    "🎁 TOP 3 ishtirokchiga:\n"
-    "📱 Telegram Premium\n"
-    "📚 Mutolaa Premium\n\n"
-    "📌 Ishtirok etish juda oson:\n"
-    "✅ 2 ta kanalga obuna bo'ling.\n"
-    "✅ Ishtirokchilarni taklif qiling.\n\n"
-    "🔥 Eng ko'p ishtirokchi taklif qilgan ishtirokchi asosiy sovg'ani qo'lga kiritadi!\n"
-    "👇 Hoziroq ishtirok eting:"
+    "🎁 **Want the SAT Math Prediction file?**\n\n"
+    "This file includes high-value SAT Math predictions & practice materials to boost your score! 🚀\n\n"
+    "Invite 3 friends to get it for free! 👇"
 )
 
 
@@ -40,7 +29,6 @@ async def cmd_start(message: Message) -> None:
     is_new = existing is None
 
     if is_new:
-        invited_by: int | None = None
         payload = None
         if message.text and len(message.text.split()) > 1:
             payload = message.text.split(maxsplit=1)[1].strip()
@@ -57,5 +45,6 @@ async def cmd_start(message: Message) -> None:
         )
 
     await message.answer(WELCOME_TEXT, reply_markup=welcome_keyboard())
+
 
 

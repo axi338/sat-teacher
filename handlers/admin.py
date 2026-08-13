@@ -102,8 +102,8 @@ async def admin_upload_file_receive(message: Message, state: FSMContext) -> None
     await save_predictions_file_id(doc.file_id)
     await state.clear()
     await message.answer(
-        "✅ JUNE SAT Predictions File uploaded successfully.\n"
-        "Users who complete all requirements will receive this file.",
+        "✅ SAT Math Prediction File uploaded successfully.\n"
+        "Users who invite 3 friends and join all 3 channels will automatically receive this file.",
         reply_markup=admin_panel_keyboard(),
     )
 

@@ -1,6 +1,6 @@
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-from config import CHANNEL_1_LINK, CHANNEL_2_LINK
+from config import BOT_USERNAME, CHANNEL_1_LINK, CHANNEL_2_LINK, CHANNEL_3_LINK
 
 
 def welcome_keyboard() -> InlineKeyboardMarkup:
@@ -8,12 +8,12 @@ def welcome_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="🚀 Ishtirok etish / Start", callback_data="participate"
+                    text="🚀 Start / Unlock SAT Math Prediction", callback_data="participate"
                 )
             ],
             [
                 InlineKeyboardButton(
-                    text="ℹ️ Mukofot haqida", callback_data="about_file"
+                    text="ℹ️ About SAT Math Prediction", callback_data="about_file"
                 )
             ],
         ]
@@ -24,80 +24,62 @@ def channels_keyboard() -> InlineKeyboardMarkup:
     buttons = []
     if CHANNEL_1_LINK:
         buttons.append(
-            [InlineKeyboardButton(text="📢 1-kanalga obuna bo'lish", url=CHANNEL_1_LINK)]
+            [InlineKeyboardButton(text="📢 1. SAT Humoyunbek", url=CHANNEL_1_LINK)]
         )
     if CHANNEL_2_LINK:
         buttons.append(
-            [InlineKeyboardButton(text="📢 2-kanalga obuna bo'lish", url=CHANNEL_2_LINK)]
+            [InlineKeyboardButton(text="📢 2. SAT Valley", url=CHANNEL_2_LINK)]
+        )
+    if CHANNEL_3_LINK:
+        buttons.append(
+            [InlineKeyboardButton(text="📢 3. Desmos Bootcamp", url=CHANNEL_3_LINK)]
         )
     buttons.append(
         [
             InlineKeyboardButton(
-                text="✅ Obunani tekshirish", callback_data="check_subscription"
+                text="🔄 Check status / Obunani tekshirish", callback_data="check_subscription"
             )
         ]
     )
     return InlineKeyboardMarkup(inline_keyboard=buttons)
 
 
+def referral_keyboard(user_id: int | None = None) -> InlineKeyboardMarkup:
+    buttons = []
+    if user_id:
+        share_url = f"https://t.me/share/url?url=https://t.me/{BOT_USERNAME}?start=ref_{user_id}&text=🎁%20Unlock%20the%20SAT%20Math%20Prediction%20file%20for%20free!"
+        buttons.append([
+            InlineKeyboardButton(
+                text="📤 Send to friends", url=share_url
+            )
+        ])
+    else:
+        buttons.append([
+            InlineKeyboardButton(
+                text="👥 Get referral link", callback_data="referral_link"
+            )
+        ])
+    buttons.append([
+        InlineKeyboardButton(
+            text="🔄 Check status", callback_data="check_subscription"
+        )
+    ])
+    buttons.append([
+        InlineKeyboardButton(
+            text="🏆 Leaderboard", callback_data="ranking"
+        )
+    ])
+    buttons.append([
+        InlineKeyboardButton(
+            text="🔓 Get SAT Math Prediction", callback_data="unlock_file"
+        )
+    ])
+    return InlineKeyboardMarkup(inline_keyboard=buttons)
 
-def referral_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="👥 Mening taklif havolam", callback_data="referral_link"
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="📊 Mening natijam", callback_data="my_progress"
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="🔓 Sovg'ani olish", callback_data="unlock_file"
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="🏆 Reyting (Top 20)", callback_data="ranking"
-                )
-            ],
-        ]
-    )
 
+def main_menu_keyboard(user_id: int | None = None) -> InlineKeyboardMarkup:
+    return referral_keyboard(user_id)
 
-def main_menu_keyboard() -> InlineKeyboardMarkup:
-    return InlineKeyboardMarkup(
-        inline_keyboard=[
-            [
-                InlineKeyboardButton(
-                    text="👥 Mening taklif havolam", callback_data="referral_link"
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="📊 Mening natijam", callback_data="my_progress"
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="🔓 Sovg'ani olish", callback_data="unlock_file"
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="🏆 Reyting (Top 20)", callback_data="ranking"
-                )
-            ],
-            [
-                InlineKeyboardButton(
-                    text="ℹ️ Mukofot haqida", callback_data="about_file"
-                )
-            ],
-        ]
-    )
 
 
 
