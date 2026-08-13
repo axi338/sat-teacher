@@ -152,7 +152,7 @@ async def cb_check_membership(callback: CallbackQuery, bot: Bot) -> None:
     if user.get("reward_sent"):
         await callback.message.answer(
             "✅ <b>Membership confirmed.</b>\n\n"
-            "You've already unlocked your SAT Math Prediction PDF!",
+            "You've already unlocked your SAT Math Prediction access!",
             reply_markup=dashboard_keyboard(user_id),
         )
         return
@@ -183,16 +183,6 @@ async def cb_get_reward(callback: CallbackQuery, bot: Bot) -> None:
             f"You need {REQUIRED_REFERRALS - count} more verified referral(s) to unlock.",
             reply_markup=dashboard_keyboard(user_id),
         )
-        return
-
-    if user.get("reward_sent"):
-        file_id = await file_service.get_predictions_file_id()
-        if file_id:
-            await callback.message.answer_document(file_id)
-        else:
-            await callback.message.answer(
-                "Your reward is unlocked! The PDF will be available shortly."
-            )
         return
 
     await file_service.deliver_reward(bot, user_id)
@@ -229,18 +219,19 @@ async def cb_admin_reward_settings(callback: CallbackQuery) -> None:
         return
     await callback.answer()
 
-    settings = await db.get_reward_settings()
-    active = settings.get("predictions_active") != "0"
-    size_bytes = settings.get("predictions_file_size")
-    size_label = f"{int(size_bytes) / 1024:.1f} KB" if size_bytes and size_bytes.isdigit() else "—"
+    from config import REWARD_CHANNEL_ID, REWARD_CHANNEL_LINK
+
+    sent_count = await db.count_rewards_sent()
+    channel_id_label = REWARD_CHANNEL_ID or "Not set — add REWARD_CHANNEL_ID to .env"
 
     await callback.message.answer(
         "🎁 <b>Reward Settings</b>\n\n"
-        f"Current PDF: <b>{settings.get('predictions_file_name') or 'Not uploaded'}</b>\n"
-        f"File size: <b>{size_label}</b>\n"
-        f"Upload date: <b>{settings.get('predictions_uploaded_at') or '—'}</b>\n"
-        f"Status: <b>{'Active' if active else 'Inactive'}</b>\n"
-        f"Users who received it: <b>{settings.get('rewards_sent_count', '0')}</b>",
+        "Reward type: <b>One-time private channel link</b>\n\n"
+        f"Channel ID: <code>{channel_id_label}</code>\n"
+        f"Fallback link: {REWARD_CHANNEL_LINK}\n\n"
+        f"Users who received access: <b>{sent_count}</b>\n\n"
+        "Each user gets a unique single-use invite link when they reach 3 referrals.\n"
+        "The bot must be an <b>admin</b> in the reward channel.",
         reply_markup=admin_panel_keyboard(),
     )
 
@@ -300,19 +291,6 @@ async def cb_broadcast_cancel(callback: CallbackQuery, state: FSMContext) -> Non
     await callback.answer()
     await state.clear()
     await callback.message.answer("Broadcast cancelled.", reply_markup=admin_panel_keyboard())
-
-
-@router.callback_query(F.data == "admin_upload_file")
-async def cb_admin_upload_file(callback: CallbackQuery, state: FSMContext) -> None:
-    if not callback.from_user or not is_admin(callback.from_user.id):
-        await callback.answer("Access denied.", show_alert=True)
-        return
-    await callback.answer()
-    await state.set_state(AdminStates.upload_file)
-    await callback.message.answer(
-        "Upload the SAT Math Prediction PDF.\n"
-        "It will be sent automatically when users reach 3 verified referrals."
-    )
 
 
 @router.callback_query(F.data == "admin_search_user")

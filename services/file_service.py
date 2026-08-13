@@ -1,8 +1,9 @@
 import database as db
 from config import (
     EXPLORE_SAT_VALLEY_LINK,
-    PREDICTIONS_FILE_KEY,
     REQUIRED_REFERRALS,
+    REWARD_CHANNEL_ID,
+    REWARD_CHANNEL_LINK,
     SAT_VALLEY_LINK,
 )
 from services.channel_checker import check_all_channels
@@ -14,17 +15,6 @@ def progress_bar(count: int, total: int = REQUIRED_REFERRALS) -> str:
     return f"{filled}{empty}  {count} / {total}"
 
 
-async def get_predictions_file_id() -> str | None:
-    active = await db.get_setting("predictions_active")
-    if active == "0":
-        return None
-    return await db.get_setting(PREDICTIONS_FILE_KEY)
-
-
-async def save_predictions_file_id(file_id: str, file_name: str, file_size: int) -> None:
-    await db.save_reward_file(file_id, file_name, file_size)
-
-
 async def user_can_unlock(bot, user: dict) -> tuple[bool, bool, int]:
     telegram_id = user["telegram_id"]
     channels_ok = await check_all_channels(bot, telegram_id)
@@ -34,6 +24,21 @@ async def user_can_unlock(bot, user: dict) -> tuple[bool, bool, int]:
     referral_count = user.get("referral_count", 0)
     referrals_ok = referral_count >= REQUIRED_REFERRALS
     return channels_ok, referrals_ok, referral_count
+
+
+async def create_unique_reward_link(bot, telegram_id: int) -> str | None:
+    """Generate a one-time invite link (member_limit=1) to the reward channel."""
+    if REWARD_CHANNEL_ID:
+        try:
+            link_obj = await bot.create_chat_invite_link(
+                chat_id=REWARD_CHANNEL_ID,
+                member_limit=1,
+                name=f"SAT Prediction {telegram_id}",
+            )
+            return link_obj.invite_link
+        except Exception:
+            pass
+    return REWARD_CHANNEL_LINK or None
 
 
 def format_dashboard(user_id: int, referral_link: str, referral_count: int) -> str:
@@ -91,7 +96,7 @@ async def format_referral_status(user_id: int) -> str:
             ]
         )
     else:
-        lines.extend(["", "🎉 <b>All referrals complete — your PDF is unlocked!</b>"])
+        lines.extend(["", "🎉 <b>All referrals complete — your access link is ready!</b>"])
 
     return "\n".join(lines)
 
@@ -124,11 +129,22 @@ def format_almost_there(missing_names: list[str]) -> str:
     )
 
 
-def format_unlock_success() -> str:
+def format_unlock_success(access_link: str) -> str:
     return (
         "🎉 <b>YOU UNLOCKED IT!</b>\n\n"
         f"You've successfully invited <b>{REQUIRED_REFERRALS} friends</b>.\n\n"
-        "Your <b>SAT Math Prediction PDF</b> is ready. 📎"
+        "Your <b>SAT Math Prediction</b> is ready.\n\n"
+        "Here is your <b>personal one-time access link</b> — it works for you only:\n\n"
+        f"🔗 {access_link}\n\n"
+        "⚠️ This link can only be used once. Tap it now to join."
+    )
+
+
+def format_access_link_resend(access_link: str) -> str:
+    return (
+        "🔗 <b>Your SAT Math Prediction access link:</b>\n\n"
+        f"{access_link}\n\n"
+        "This is your personal link. If you haven't joined yet, tap it now."
     )
 
 
@@ -142,26 +158,36 @@ def format_post_reward_funnel() -> str:
 
 async def deliver_reward(bot, telegram_id: int) -> bool:
     user = await db.get_user(telegram_id)
-    if not user or user.get("reward_sent"):
+    if not user:
         return False
 
     referral_count = user.get("referral_count", 0)
     if referral_count < REQUIRED_REFERRALS:
         return False
 
-    file_id = await get_predictions_file_id()
+    if user.get("reward_sent") and user.get("reward_access_link"):
+        from aiogram.exceptions import TelegramAPIError
+
+        try:
+            await bot.send_message(
+                telegram_id,
+                format_access_link_resend(user["reward_access_link"]),
+            )
+        except TelegramAPIError:
+            return False
+        return True
+
+    if user.get("reward_sent"):
+        return False
+
+    access_link = await create_unique_reward_link(bot, telegram_id)
+    if not access_link:
+        return False
+
     from aiogram.exceptions import TelegramAPIError
 
     try:
-        await bot.send_message(telegram_id, format_unlock_success())
-        if file_id:
-            await bot.send_document(telegram_id, file_id)
-        else:
-            await bot.send_message(
-                telegram_id,
-                "Your reward is unlocked! The PDF will be delivered shortly — "
-                "check back soon or contact SAT Valley support.",
-            )
+        await bot.send_message(telegram_id, format_unlock_success(access_link))
     except TelegramAPIError:
         return False
 
@@ -169,6 +195,7 @@ async def deliver_reward(bot, telegram_id: int) -> bool:
         telegram_id,
         reward_sent=1,
         file_unlocked=1,
+        reward_access_link=access_link,
     )
 
     from keyboards import post_reward_keyboard

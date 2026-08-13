@@ -45,6 +45,8 @@ async def init_db() -> None:
                 await db.execute("ALTER TABLE users ADD COLUMN referral_credited INTEGER DEFAULT 0;")
             if "reward_sent" not in columns:
                 await db.execute("ALTER TABLE users ADD COLUMN reward_sent INTEGER DEFAULT 0;")
+            if "reward_access_link" not in columns:
+                await db.execute("ALTER TABLE users ADD COLUMN reward_access_link TEXT;")
         await db.commit()
 
 

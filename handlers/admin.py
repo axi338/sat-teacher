@@ -1,4 +1,4 @@
-from aiogram import Bot, F, Router
+from aiogram import Router
 from aiogram.filters import Command
 from aiogram.fsm.context import FSMContext
 from aiogram.fsm.state import State, StatesGroup
@@ -8,7 +8,6 @@ import database as db
 from config import ADMIN_IDS
 from keyboards import admin_panel_keyboard, broadcast_confirm_keyboard
 from services.export_service import export_users_csv, format_user_info
-from services.file_service import save_predictions_file_id
 
 router = Router()
 
@@ -16,7 +15,6 @@ router = Router()
 class AdminStates(StatesGroup):
     broadcast_message = State()
     broadcast_confirm = State()
-    upload_file = State()
     search_user = State()
 
 
@@ -80,31 +78,6 @@ async def admin_broadcast_receive(message: Message, state: FSMContext) -> None:
         "Are you sure you want to send this message to all users?",
         reply_markup=broadcast_confirm_keyboard(),
     )
-
-
-@router.message(AdminStates.upload_file, F.document)
-async def admin_upload_file_receive(message: Message, state: FSMContext) -> None:
-    if not message.from_user or not is_admin(message.from_user.id):
-        await state.clear()
-        return
-
-    doc = message.document
-    if not doc:
-        await message.answer("Please send a document file.")
-        return
-
-    await save_predictions_file_id(doc.file_id, doc.file_name or "SAT Math Prediction.pdf", doc.file_size or 0)
-    await state.clear()
-    await message.answer(
-        "✅ SAT Math Prediction PDF uploaded successfully.\n"
-        "Users who reach 3 verified referrals will receive it automatically.",
-        reply_markup=admin_panel_keyboard(),
-    )
-
-
-@router.message(AdminStates.upload_file)
-async def admin_upload_file_invalid(message: Message) -> None:
-    await message.answer("Please upload a PDF document.")
 
 
 @router.message(AdminStates.search_user)

@@ -47,11 +47,9 @@ DATABASE_PATH = DATA_DIR / "bot.db"
 req_ref_str = get_env("REQUIRED_REFERRALS", "3")
 REQUIRED_REFERRALS = int(req_ref_str) if req_ref_str.isdigit() else 3
 
-PREDICTIONS_FILE_KEY = "predictions_file_id"
-PREDICTIONS_FILE_NAME_KEY = "predictions_file_name"
-PREDICTIONS_FILE_SIZE_KEY = "predictions_file_size"
-PREDICTIONS_UPLOADED_AT_KEY = "predictions_uploaded_at"
-PREDICTIONS_ACTIVE_KEY = "predictions_active"
-TARGET_CHANNEL_LINK = get_env("TARGET_CHANNEL_LINK", "https://t.me/sat_valley")
-TARGET_CHANNEL_ID = os.getenv("TARGET_CHANNEL_ID", "").strip()
+REWARD_CHANNEL_LINK = get_env(
+    "REWARD_CHANNEL_LINK",
+    get_env("TARGET_CHANNEL_LINK", "https://t.me/+cTSodpQWmKs1Y2Iy"),
+)
+REWARD_CHANNEL_ID = get_env("REWARD_CHANNEL_ID", "-1003989662655")
 

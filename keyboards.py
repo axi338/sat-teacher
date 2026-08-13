@@ -55,7 +55,7 @@ def channels_keyboard() -> InlineKeyboardMarkup:
 def unlock_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="📥 Get SAT Math Prediction", callback_data="get_reward")],
+            [InlineKeyboardButton(text="🔗 Get My Access Link", callback_data="get_reward")],
             [InlineKeyboardButton(text="🔄 Refresh Status", callback_data="refresh_status")],
         ]
     )
@@ -84,7 +84,6 @@ def admin_panel_keyboard() -> InlineKeyboardMarkup:
         inline_keyboard=[
             [InlineKeyboardButton(text="📊 Dashboard", callback_data="admin_campaign_stats")],
             [InlineKeyboardButton(text="🎁 Reward Settings", callback_data="admin_reward_settings")],
-            [InlineKeyboardButton(text="📁 Upload PDF Reward", callback_data="admin_upload_file")],
             [InlineKeyboardButton(text="📤 Broadcast Message", callback_data="admin_broadcast")],
             [InlineKeyboardButton(text="🔍 Search User", callback_data="admin_search_user")],
             [InlineKeyboardButton(text="📥 Export CSV", callback_data="admin_export_data")],

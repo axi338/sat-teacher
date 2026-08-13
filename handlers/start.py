@@ -11,7 +11,7 @@ router = Router()
 WELCOME_TEXT = (
     "<b>SAT Valley | Math Prediction</b>\n\n"
     "🎯 <b>Want the SAT Math Prediction file?</b>\n\n"
-    "Get our <b>SAT Math Prediction PDF</b> and use it as part of your SAT preparation.\n\n"
+    "Get our <b>SAT Math Prediction</b> and use it as part of your SAT preparation.\n\n"
     "<b>It's free — just invite 3 friends.</b>\n\n"
     "<b>How it works:</b>\n\n"
     "1️⃣ Share your personal invite link\n"
@@ -46,7 +46,7 @@ async def cmd_start(message: Message) -> None:
 
         if inviter_id:
             await message.answer(
-                "👋 You've been invited to help unlock the SAT Math Prediction PDF!\n\n"
+                "👋 You've been invited to help unlock the SAT Math Prediction!\n\n"
                 "Join all 3 SAT Valley channels below — once verified, your friend gets credit.",
                 reply_markup=referred_welcome_keyboard(),
             )
