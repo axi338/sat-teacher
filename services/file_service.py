@@ -33,7 +33,7 @@ async def create_unique_reward_link(bot, telegram_id: int) -> str | None:
             link_obj = await bot.create_chat_invite_link(
                 chat_id=REWARD_CHANNEL_ID,
                 member_limit=1,
-                name=f"SAT Prediction {telegram_id}",
+                name=f"SAT August Prediction {telegram_id}",
             )
             return link_obj.invite_link
         except Exception:
@@ -43,7 +43,7 @@ async def create_unique_reward_link(bot, telegram_id: int) -> str | None:
 
 def format_dashboard(user_id: int, referral_link: str, referral_count: int) -> str:
     return (
-        "🎁 <b>Your SAT Math Prediction is waiting!</b>\n\n"
+        "🎁 <b>Your SAT Math August Prediction is waiting!</b>\n\n"
         f"You need <b>{REQUIRED_REFERRALS} successful referrals</b> to unlock it.\n\n"
         f"<b>Your progress:</b>\n{progress_bar(referral_count)}\n\n"
         "For a referral to count, your friend must:\n"
@@ -63,7 +63,7 @@ async def format_referral_status(user_id: int) -> str:
     bar = progress_bar(referral_count)
 
     lines = [
-        "🎯 <b>Your SAT Math Prediction</b>",
+        "🎯 <b>Your SAT Math August Prediction</b>",
         "",
         "<b>Referral Progress</b>",
         bar,
@@ -133,7 +133,7 @@ def format_unlock_success(access_link: str) -> str:
     return (
         "🎉 <b>YOU UNLOCKED IT!</b>\n\n"
         f"You've successfully invited <b>{REQUIRED_REFERRALS} friends</b>.\n\n"
-        "Your <b>SAT Math Prediction</b> is ready.\n\n"
+        "Your <b>SAT Math August Prediction</b> is ready.\n\n"
         "Here is your <b>personal one-time access link</b> — it works for you only:\n\n"
         f"🔗 {access_link}\n\n"
         "⚠️ This link can only be used once. Tap it now to join."
@@ -142,7 +142,7 @@ def format_unlock_success(access_link: str) -> str:
 
 def format_access_link_resend(access_link: str) -> str:
     return (
-        "🔗 <b>Your SAT Math Prediction access link:</b>\n\n"
+        "🔗 <b>Your SAT Math August Prediction access link:</b>\n\n"
         f"{access_link}\n\n"
         "This is your personal link. If you haven't joined yet, tap it now."
     )

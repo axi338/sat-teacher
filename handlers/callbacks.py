@@ -152,7 +152,7 @@ async def cb_check_membership(callback: CallbackQuery, bot: Bot) -> None:
     if user.get("reward_sent"):
         await callback.message.answer(
             "✅ <b>Membership confirmed.</b>\n\n"
-            "You've already unlocked your SAT Math Prediction access!",
+            "You've already unlocked your SAT Math August Prediction access!",
             reply_markup=dashboard_keyboard(user_id),
         )
         return

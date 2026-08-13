@@ -55,7 +55,7 @@ def channels_keyboard() -> InlineKeyboardMarkup:
 def unlock_keyboard() -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup(
         inline_keyboard=[
-            [InlineKeyboardButton(text="🔗 Get My Access Link", callback_data="get_reward")],
+            [InlineKeyboardButton(text="🔗 Get SAT Math August Prediction", callback_data="get_reward")],
             [InlineKeyboardButton(text="🔄 Refresh Status", callback_data="refresh_status")],
         ]
     )
