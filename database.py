@@ -1,6 +1,7 @@
 import aiosqlite
 from datetime import datetime, timezone
 from typing import Any
+from pathlib import Path
 
 from config import DATABASE_PATH
 
@@ -8,35 +9,42 @@ from config import DATABASE_PATH
 async def init_db() -> None:
     async with aiosqlite.connect(DATABASE_PATH) as db:
         await db.execute("PRAGMA journal_mode=WAL;")
-        await db.executescript(
-            """
-            CREATE TABLE IF NOT EXISTS users (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                telegram_id INTEGER UNIQUE NOT NULL,
-                full_name TEXT,
-                username TEXT,
-                joined_at TEXT NOT NULL,
-                invited_by INTEGER,
-                referral_count INTEGER DEFAULT 0,
-                channels_joined INTEGER DEFAULT 0,
-                file_unlocked INTEGER DEFAULT 0,
-                referral_credited INTEGER DEFAULT 0
-            );
+        # Prefer an external schema file if present so maintainers can edit DB layout
+        schema_path = Path(__file__).parent / "schema.sql"
+        if schema_path.exists():
+            schema_sql = schema_path.read_text(encoding="utf-8")
+            await db.executescript(schema_sql)
+        else:
+            # Fallback to embedded schema for backwards compatibility
+            await db.executescript(
+                """
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    telegram_id INTEGER UNIQUE NOT NULL,
+                    full_name TEXT,
+                    username TEXT,
+                    joined_at TEXT NOT NULL,
+                    invited_by INTEGER,
+                    referral_count INTEGER DEFAULT 0,
+                    channels_joined INTEGER DEFAULT 0,
+                    file_unlocked INTEGER DEFAULT 0,
+                    referral_credited INTEGER DEFAULT 0
+                );
 
-            CREATE TABLE IF NOT EXISTS referrals (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                inviter_id INTEGER NOT NULL,
-                invited_user_id INTEGER NOT NULL,
-                created_at TEXT NOT NULL,
-                UNIQUE(inviter_id, invited_user_id)
-            );
+                CREATE TABLE IF NOT EXISTS referrals (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    inviter_id INTEGER NOT NULL,
+                    invited_user_id INTEGER NOT NULL,
+                    created_at TEXT NOT NULL,
+                    UNIQUE(inviter_id, invited_user_id)
+                );
 
-            CREATE TABLE IF NOT EXISTS settings (
-                key TEXT PRIMARY KEY,
-                value TEXT
-            );
-            """
-        )
+                CREATE TABLE IF NOT EXISTS settings (
+                    key TEXT PRIMARY KEY,
+                    value TEXT
+                );
+                """
+            )
         # Auto-migrate table if referral_credited column missing
         async with db.execute("PRAGMA table_info(users)") as cursor:
             rows = await cursor.fetchall()
@@ -47,6 +55,8 @@ async def init_db() -> None:
                 await db.execute("ALTER TABLE users ADD COLUMN reward_sent INTEGER DEFAULT 0;")
             if "reward_access_link" not in columns:
                 await db.execute("ALTER TABLE users ADD COLUMN reward_access_link TEXT;")
+            if "lang" not in columns:
+                await db.execute("ALTER TABLE users ADD COLUMN lang TEXT DEFAULT 'uz';")
         await db.commit()
 
 

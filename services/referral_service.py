@@ -16,7 +16,7 @@ def build_referral_link(telegram_id: int) -> str:
 
 def build_share_url(referral_link: str) -> str:
     share_text = (
-        "🎯 Want the SAT Math August Prediction?\n\n"
+        "🎯 Want the SAT Math September Prediction?\n\n"
         "I'm unlocking mine through SAT Valley — you can get yours too.\n\n"
         "Join through my link and help me unlock it 👇\n\n"
         f"{referral_link}\n\n"
@@ -77,7 +77,7 @@ def inviter_success_message(referral_count: int) -> str:
             "🔥 <b>2 / 3 friends completed!</b>\n\n"
             f"{bar}\n\n"
             "You're one step away from unlocking your "
-            "<b>SAT Math August Prediction</b>.\n\n"
+            "<b>SAT Math September Prediction</b>.\n\n"
             "Invite <b>1 more friend</b> who joins all 3 channels."
         )
     return (
@@ -91,7 +91,7 @@ def inviter_success_message(referral_count: int) -> str:
 def referred_user_viral_loop_message(referral_link: str) -> str:
     return (
         "✅ <b>Membership confirmed!</b>\n\n"
-        "You've helped your friend move closer to their SAT Math August Prediction.\n\n"
+        "You've helped your friend move closer to their SAT Math September Prediction.\n\n"
         "🎁 <b>Want the same access?</b>\n\n"
         "Invite <b>3 friends</b> who open this bot through your link and join all "
         "3 SAT Valley channels — your personal access link unlocks automatically.\n\n"

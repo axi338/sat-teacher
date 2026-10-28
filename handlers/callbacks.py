@@ -23,8 +23,13 @@ from services.referral_service import (
     build_referral_link,
     check_and_credit_referral,
 )
+from translations import get_lang
 
 router = Router()
+
+
+def _lang(user: dict | None) -> str:
+    return get_lang(user)
 
 
 @router.callback_query(F.data == "get_invite_link")
@@ -39,35 +44,34 @@ async def cb_get_invite_link(callback: CallbackQuery, bot: Bot) -> None:
         await callback.message.answer("Please send /start first.")
         return
 
+    lang = _lang(user)
     all_joined, joined_count, missing = await get_channel_membership_status(bot, user_id)
     link = build_referral_link(user_id)
 
     if not all_joined:
-        if joined_count > 0:
-            await callback.message.answer(
-                file_service.format_almost_there(missing),
-                reply_markup=channels_keyboard(),
-                link_preview_options=LinkPreviewOptions(is_disabled=True),
-            )
-        else:
-            await callback.message.answer(
-                file_service.format_channels_step(),
-                reply_markup=channels_keyboard(),
-                link_preview_options=LinkPreviewOptions(is_disabled=True),
-            )
+        text = (
+            file_service.format_almost_there(missing, lang=lang)
+            if joined_count > 0
+            else file_service.format_channels_step(lang=lang)
+        )
+        await callback.message.answer(
+            text,
+            reply_markup=channels_keyboard(lang=lang),
+            link_preview_options=LinkPreviewOptions(is_disabled=True),
+        )
         return
 
     await db.update_user(user_id, channels_joined=1)
     count = user.get("referral_count", 0)
     await callback.message.answer(
-        file_service.format_dashboard(user_id, link, count),
-        reply_markup=dashboard_keyboard(user_id),
+        file_service.format_dashboard(user_id, link, count, lang=lang),
+        reply_markup=dashboard_keyboard(user_id, lang=lang),
         link_preview_options=LinkPreviewOptions(is_disabled=True),
     )
 
 
 @router.callback_query(F.data == "check_progress")
-async def cb_check_progress(callback: CallbackQuery) -> None:
+async def cb_check_progress(callback: CallbackQuery, bot: Bot) -> None:
     await callback.answer()
     if not callback.from_user:
         return
@@ -78,11 +82,29 @@ async def cb_check_progress(callback: CallbackQuery) -> None:
         await callback.message.answer("Please send /start first.")
         return
 
+    lang = _lang(user)
+    all_joined, joined_count, missing = await get_channel_membership_status(bot, user_id)
     link = build_referral_link(user_id)
+
+    if not all_joined:
+        await db.update_user(user_id, channels_joined=0)
+        text = (
+            file_service.format_almost_there(missing, lang=lang)
+            if joined_count > 0
+            else file_service.format_channels_step(lang=lang)
+        )
+        await callback.message.answer(
+            text,
+            reply_markup=channels_keyboard(lang=lang),
+            link_preview_options=LinkPreviewOptions(is_disabled=True),
+        )
+        return
+
+    await db.update_user(user_id, channels_joined=1)
     count = user.get("referral_count", 0)
     await callback.message.answer(
-        file_service.format_dashboard(user_id, link, count),
-        reply_markup=dashboard_keyboard(user_id),
+        file_service.format_dashboard(user_id, link, count, lang=lang),
+        reply_markup=dashboard_keyboard(user_id, lang=lang),
         link_preview_options=LinkPreviewOptions(is_disabled=True),
     )
 
@@ -94,20 +116,23 @@ async def cb_refresh_status(callback: CallbackQuery) -> None:
         return
 
     user_id = callback.from_user.id
-    text = await file_service.format_referral_status(user_id)
     user = await db.get_user(user_id)
+    lang = _lang(user)
     count = user.get("referral_count", 0) if user else 0
 
-    kb = unlock_keyboard() if count >= REQUIRED_REFERRALS else status_keyboard(user_id)
+    text = await file_service.format_referral_status(user_id, lang=lang)
+    kb = unlock_keyboard(lang=lang) if count >= REQUIRED_REFERRALS else status_keyboard(user_id, lang=lang)
     await callback.message.answer(text, reply_markup=kb)
 
 
 @router.callback_query(F.data == "required_channels")
 async def cb_required_channels(callback: CallbackQuery) -> None:
     await callback.answer()
+    user = await db.get_user(callback.from_user.id) if callback.from_user else None
+    lang = _lang(user)
     await callback.message.answer(
-        file_service.format_channels_step(),
-        reply_markup=channels_keyboard(),
+        file_service.format_channels_step(lang=lang),
+        reply_markup=channels_keyboard(lang=lang),
         link_preview_options=LinkPreviewOptions(is_disabled=True),
     )
 
@@ -124,13 +149,14 @@ async def cb_check_membership(callback: CallbackQuery, bot: Bot) -> None:
         await callback.message.answer("Please send /start first.")
         return
 
+    lang = _lang(user)
     all_joined, joined_count, missing = await get_channel_membership_status(bot, user_id)
 
     if not all_joined:
         await db.update_user(user_id, channels_joined=0)
         await callback.message.answer(
-            file_service.format_almost_there(missing),
-            reply_markup=channels_keyboard(),
+            file_service.format_almost_there(missing, lang=lang),
+            reply_markup=channels_keyboard(lang=lang),
             link_preview_options=LinkPreviewOptions(is_disabled=True),
         )
         return
@@ -142,25 +168,26 @@ async def cb_check_membership(callback: CallbackQuery, bot: Bot) -> None:
         return
 
     user = await db.get_user(user_id) or user
-    link = build_referral_link(user_id)
+    link  = build_referral_link(user_id)
     count = user.get("referral_count", 0)
 
     if count >= REQUIRED_REFERRALS and not user.get("reward_sent"):
         await file_service.deliver_reward(bot, user_id)
         return
 
+    from translations import T
     if user.get("reward_sent"):
         await callback.message.answer(
-            "✅ <b>Membership confirmed.</b>\n\n"
-            "You've already unlocked your SAT Math August Prediction access!",
-            reply_markup=dashboard_keyboard(user_id),
+            T[lang]["membership_confirmed_unlocked"],
+            reply_markup=dashboard_keyboard(user_id, lang=lang),
         )
         return
 
     await callback.message.answer(
-        "✅ <b>Membership confirmed.</b>\n\n"
-        + file_service.format_dashboard(user_id, link, count),
-        reply_markup=dashboard_keyboard(user_id),
+        T[lang]["membership_confirmed"].format(
+            dashboard=file_service.format_dashboard(user_id, link, count, lang=lang)
+        ),
+        reply_markup=dashboard_keyboard(user_id, lang=lang),
         link_preview_options=LinkPreviewOptions(is_disabled=True),
     )
 
@@ -177,18 +204,22 @@ async def cb_get_reward(callback: CallbackQuery, bot: Bot) -> None:
         await callback.message.answer("Please send /start first.")
         return
 
+    lang  = _lang(user)
     count = user.get("referral_count", 0)
     if count < REQUIRED_REFERRALS:
+        from translations import T
         await callback.message.answer(
-            f"You need {REQUIRED_REFERRALS - count} more verified referral(s) to unlock.",
-            reply_markup=dashboard_keyboard(user_id),
+            f"{'Yana' if lang == 'uz' else 'You need'} "
+            f"{REQUIRED_REFERRALS - count} "
+            f"{'ta taklif kerak.' if lang == 'uz' else 'more referral(s) to unlock.'}",
+            reply_markup=dashboard_keyboard(user_id, lang=lang),
         )
         return
 
     await file_service.deliver_reward(bot, user_id)
 
 
-# --- Admin callbacks ---
+# ── Admin callbacks ──────────────────────────────────────────────────────────
 
 
 @router.callback_query(F.data == "admin_campaign_stats")
@@ -198,13 +229,13 @@ async def cb_admin_campaign_stats(callback: CallbackQuery) -> None:
         return
     await callback.answer()
     s = await db.get_campaign_stats()
-    total = s.get("total_users", 0) or 1
-    unlocked = s.get("file_unlocked", 0)
+    total      = s.get("total_users", 0) or 1
+    unlocked   = s.get("file_unlocked", 0)
     conversion = round(unlocked / total * 100, 1)
     await callback.message.answer(
         "📊 <b>Dashboard</b>\n\n"
         f"Total Users: <b>{s.get('total_users', 0)}</b>\n"
-        f"Joined All 3 Channels: <b>{s.get('joined_channels', 0)}</b>\n"
+        f"Joined All 4 Channels: <b>{s.get('joined_channels', 0)}</b>\n"
         f"Total Verified Referrals: <b>{s.get('total_referrals', 0)}</b>\n"
         f"Users Unlocked (3/3): <b>{unlocked}</b>\n"
         f"Conversion Rate: <b>{conversion}%</b>",
@@ -221,7 +252,7 @@ async def cb_admin_reward_settings(callback: CallbackQuery) -> None:
 
     from config import REWARD_CHANNEL_ID, REWARD_CHANNEL_LINK
 
-    sent_count = await db.count_rewards_sent()
+    sent_count       = await db.count_rewards_sent()
     channel_id_label = REWARD_CHANNEL_ID or "Not set — add REWARD_CHANNEL_ID to .env"
 
     await callback.message.answer(
@@ -257,9 +288,9 @@ async def cb_broadcast_confirm(callback: CallbackQuery, state: FSMContext, bot: 
     text = data.get("broadcast_text", "")
     await state.clear()
 
-    users = await db.get_all_users()
+    users   = await db.get_all_users()
     success = 0
-    failed = 0
+    failed  = 0
     for u in users:
         try:
             await bot.send_message(u["telegram_id"], text)
@@ -272,9 +303,7 @@ async def cb_broadcast_confirm(callback: CallbackQuery, state: FSMContext, bot: 
                 success += 1
             except Exception:
                 failed += 1
-        except TelegramAPIError:
-            failed += 1
-        except Exception:
+        except (TelegramAPIError, Exception):
             failed += 1
 
     await callback.message.answer(
@@ -311,7 +340,7 @@ async def cb_admin_export_data(callback: CallbackQuery) -> None:
     await callback.answer()
 
     csv_data = await export_users_csv()
-    file = BufferedInputFile(csv_data, filename="users_export.csv")
+    file     = BufferedInputFile(csv_data, filename="users_export.csv")
     await callback.message.answer_document(
         file,
         caption="📥 Exported user data",

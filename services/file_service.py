@@ -1,17 +1,16 @@
 import database as db
 from config import (
-    EXPLORE_SAT_VALLEY_LINK,
     REQUIRED_REFERRALS,
     REWARD_CHANNEL_ID,
     REWARD_CHANNEL_LINK,
-    SAT_VALLEY_LINK,
 )
 from services.channel_checker import check_all_channels
+from translations import T, get_lang
 
 
 def progress_bar(count: int, total: int = REQUIRED_REFERRALS) -> str:
     filled = "🟩" * min(count, total)
-    empty = "⬜" * max(0, total - count)
+    empty  = "⬜" * max(0, total - count)
     return f"{filled}{empty}  {count} / {total}"
 
 
@@ -22,7 +21,7 @@ async def user_can_unlock(bot, user: dict) -> tuple[bool, bool, int]:
         await db.update_user(telegram_id, channels_joined=1)
 
     referral_count = user.get("referral_count", 0)
-    referrals_ok = referral_count >= REQUIRED_REFERRALS
+    referrals_ok   = referral_count >= REQUIRED_REFERRALS
     return channels_ok, referrals_ok, referral_count
 
 
@@ -33,7 +32,7 @@ async def create_unique_reward_link(bot, telegram_id: int) -> str | None:
             link_obj = await bot.create_chat_invite_link(
                 chat_id=REWARD_CHANNEL_ID,
                 member_limit=1,
-                name=f"SAT August Prediction {telegram_id}",
+                name=f"SAT To\u02bbliq Kurs {telegram_id}",
             )
             return link_obj.invite_link
         except Exception:
@@ -41,119 +40,78 @@ async def create_unique_reward_link(bot, telegram_id: int) -> str | None:
     return REWARD_CHANNEL_LINK or None
 
 
-def format_dashboard(user_id: int, referral_link: str, referral_count: int) -> str:
-    return (
-        "🎁 <b>Your SAT Math August Prediction is waiting!</b>\n\n"
-        f"You need <b>{REQUIRED_REFERRALS} successful referrals</b> to unlock it.\n\n"
-        f"<b>Your progress:</b>\n{progress_bar(referral_count)}\n\n"
-        "For a referral to count, your friend must:\n"
-        "✅ Open this bot through your invite link\n"
-        "✅ Join all 3 required channels\n\n"
-        f"<b>Your personal invite link:</b>\n{referral_link}"
-    )
+def format_dashboard(user_id: int, referral_link: str, referral_count: int,
+                     lang: str = "uz") -> str:
+    bar = progress_bar(referral_count)
+    return T[lang]["dashboard"].format(n=REQUIRED_REFERRALS, bar=bar, link=referral_link)
 
 
-async def format_referral_status(user_id: int) -> str:
+async def format_referral_status(user_id: int, lang: str = "uz") -> str:
     user = await db.get_user(user_id)
     if not user:
-        return "Please send /start first."
+        return T[lang]["not_started"]
 
     referral_count = user.get("referral_count", 0)
     verified, pending = await db.get_referral_friends(user_id)
     bar = progress_bar(referral_count)
+    t = T[lang]
 
-    lines = [
-        "🎯 <b>Your SAT Math August Prediction</b>",
-        "",
-        "<b>Referral Progress</b>",
-        bar,
-        "",
-    ]
+    lines = [t["status_header"], "", t["status_progress_title"], bar, ""]
 
     slot = 1
     for friend in verified:
-        label = friend.get("full_name") or friend.get("username") or f"Friend {slot}"
-        lines.append(f"✅ Friend {slot} — Verified ({label})")
+        label = friend.get("full_name") or friend.get("username") or f"#{slot}"
+        lines.append(t["status_verified"].format(n=slot, label=label))
         slot += 1
 
     for friend in pending:
-        label = friend.get("full_name") or friend.get("username") or f"Friend {slot}"
-        lines.append(f"⏳ Friend {slot} — Waiting ({label})")
+        label = friend.get("full_name") or friend.get("username") or f"#{slot}"
+        lines.append(t["status_pending"].format(n=slot, label=label))
         slot += 1
 
     while slot <= REQUIRED_REFERRALS:
-        lines.append(f"⏳ Friend {slot} — Waiting")
+        lines.append(t["status_waiting"].format(n=slot))
         slot += 1
 
     remaining = max(REQUIRED_REFERRALS - referral_count, 0)
     if remaining:
-        lines.extend(
-            [
-                "",
-                f"<b>{remaining} more successful referral{'s' if remaining != 1 else ''} needed!</b>",
-                "",
-                "Your friend must join all 3 channels for the referral to count.",
-            ]
-        )
+        s = "" if lang == "uz" else ("s" if remaining != 1 else "")
+        lines.extend([
+            "",
+            t["status_need_more"].format(n=remaining, s=s),
+            "",
+            t["status_channel_note"],
+        ])
     else:
-        lines.extend(["", "🎉 <b>All referrals complete — your access link is ready!</b>"])
+        lines.extend(["", t["status_complete"]])
 
     return "\n".join(lines)
 
 
-def format_channels_step() -> str:
-    return (
-        "📚 <b>Step 1 — Join the SAT Valley channels</b>\n\n"
-        "Join all 3 channels below:\n\n"
-        "<b>1. SAT Humoyunbek</b>\n"
-        "<b>2. SAT Valley</b>\n"
-        "<b>3. Desmos Bootcamp</b>\n\n"
-        "After joining all three, return here and tap:\n"
-        "<b>✅ Check My Membership</b>"
-    )
+def format_channels_step(lang: str = "uz") -> str:
+    return T[lang]["channels_step"]
 
 
-def format_almost_there(missing_names: list[str]) -> str:
+def format_almost_there(missing_names: list[str], lang: str = "uz") -> str:
+    t = T[lang]
     if len(missing_names) == 1:
-        channels_text = f"the <b>{missing_names[0]}</b> channel"
+        ch = missing_names[0]
+        return t["almost_there_single"].format(ch=ch)
     else:
-        channels_text = "these channels: " + ", ".join(f"<b>{n}</b>" for n in missing_names)
-
-    return (
-        "⏳ <b>Almost there!</b>\n\n"
-        "We haven't counted this referral yet because you still need to join "
-        f"{channels_text}.\n\n"
-        "Please join the remaining channel(s), then tap "
-        "<b>🔄 Check Membership</b>.\n\n"
-        "Once all 3 are confirmed, the referral will be added automatically."
-    )
+        ch = ", ".join(f"<b>{n}</b>" for n in missing_names)
+        return t["almost_there_multi"].format(ch=ch)
 
 
-def format_unlock_success(access_link: str) -> str:
-    return (
-        "🎉 <b>YOU UNLOCKED IT!</b>\n\n"
-        f"You've successfully invited <b>{REQUIRED_REFERRALS} friends</b>.\n\n"
-        "Your <b>SAT Math August Prediction</b> is ready.\n\n"
-        "Here is your <b>personal one-time access link</b> — it works for you only:\n\n"
-        f"🔗 {access_link}\n\n"
-        "⚠️ This link can only be used once. Tap it now to join."
-    )
+def format_unlock_success(access_link: str, lang: str = "uz") -> str:
+    return T[lang]["unlock_success"].format(n=REQUIRED_REFERRALS, link=access_link)
 
 
-def format_access_link_resend(access_link: str) -> str:
-    return (
-        "🔗 <b>Your SAT Math August Prediction access link:</b>\n\n"
-        f"{access_link}\n\n"
-        "This is your personal link. If you haven't joined yet, tap it now."
-    )
+def format_access_link_resend(access_link: str, lang: str = "uz") -> str:
+    return T[lang]["access_link_resend"].format(link=access_link)
 
 
-def format_post_reward_funnel() -> str:
-    return (
-        "🚀 <b>Want more SAT preparation resources?</b>\n\n"
-        "Explore SAT Valley and continue preparing with our practice materials, "
-        "lessons, and resources."
-    )
+def format_post_reward_funnel(lang: str = "uz") -> str:
+    return T[lang]["post_reward"]
 
 
 async def deliver_reward(bot, telegram_id: int) -> bool:
@@ -161,17 +119,17 @@ async def deliver_reward(bot, telegram_id: int) -> bool:
     if not user:
         return False
 
+    lang = get_lang(user)
     referral_count = user.get("referral_count", 0)
     if referral_count < REQUIRED_REFERRALS:
         return False
 
     if user.get("reward_sent") and user.get("reward_access_link"):
         from aiogram.exceptions import TelegramAPIError
-
         try:
             await bot.send_message(
                 telegram_id,
-                format_access_link_resend(user["reward_access_link"]),
+                format_access_link_resend(user["reward_access_link"], lang=lang),
             )
         except TelegramAPIError:
             return False
@@ -187,7 +145,7 @@ async def deliver_reward(bot, telegram_id: int) -> bool:
     from aiogram.exceptions import TelegramAPIError
 
     try:
-        await bot.send_message(telegram_id, format_unlock_success(access_link))
+        await bot.send_message(telegram_id, format_unlock_success(access_link, lang=lang))
     except TelegramAPIError:
         return False
 
@@ -203,8 +161,8 @@ async def deliver_reward(bot, telegram_id: int) -> bool:
     try:
         await bot.send_message(
             telegram_id,
-            format_post_reward_funnel(),
-            reply_markup=post_reward_keyboard(),
+            format_post_reward_funnel(lang=lang),
+            reply_markup=post_reward_keyboard(lang=lang),
         )
     except TelegramAPIError:
         pass
